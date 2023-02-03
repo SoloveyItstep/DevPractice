@@ -1,42 +1,78 @@
+using DevPractice.Domain.Core;
+using DevPractice.Domain.Core.DTOs;
+using DevPractice.Domain.Core.Response;
+using DevPractice.Services.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.Sqlite;
 
-namespace DevPractice.Controllers;
-
-[ApiController]
-[Route("[controller]")]
-public class WeatherForecastController : ControllerBase
+namespace DevPractice.Controllers
 {
-    private SqliteConnection connection;
-    
-
-    public WeatherForecastController()
+    [ApiController]
+    [Route("[controller]")]
+    public class WeatherForecastController : ControllerBase
     {
-        connection = new SqliteConnection("Data Source=identifier.sqlite");
-        connection.Open();
-    }
+        private readonly IWeatherService _weatherService;
+        private readonly ILogger<WeatherForecastController> _logger;
 
-    [HttpGet(Name = "GetWeatherForecast")]
-    public IEnumerable<WeatherForecast> SelectFromDBAndShow()
-    {
-        List<dynamic> Summaries = new List<dynamic>();
-        Console.WriteLine("Get started");
-        SqliteCommand command = new SqliteCommand("select * from table_name", connection);
-        var reader = command.ExecuteReader();
-        while (reader.Read())
+        public WeatherForecastController(ILogger<WeatherForecastController> logger, IWeatherService service)
         {
-            dynamic name = reader["name"];
-            Summaries.Add(name);
-            Console.WriteLine($"Verbose:{name}");
+            _logger = logger;
+            _weatherService = service;
         }
-        
-        return Enumerable.Range(1, 5).Select(index => new WeatherForecast
+
+        [HttpGet]
+        [Route("GetWeatherForecast")]
+        public async Task<Response<List<WeatherForecastDTO>>> Get()
+        {
+            _logger.LogInformation("Get started");
+
+            var result = await _weatherService.GetWeatherForecasts();
+
+            _logger.LogInformation("Get ended");
+
+            return new Response<List<WeatherForecastDTO>> (result);
+        }
+
+        [HttpGet]
+        [Route("GetWeatherForecastOnDate")]
+        public async Task<Response<WeatherForecastDTO>> Get(DateTime date)
+        {
+            _logger.LogInformation("Get on date started");
+
+            var result = await _weatherService.GetOnDate(date);
+
+            _logger.LogInformation("Get on date ended");
+
+            return new Response<WeatherForecastDTO>(result);
+        }
+
+        [HttpPost]
+        [Route("AddVerbose")]
+        public async Task AddVerbose(string name)
+        {
+            if (string.IsNullOrEmpty(name))
             {
-                Date = DateTime.Now.AddDays(index),
-                TemperatureC = Random.Shared.Next(-20, 55),
-                Summary = Summaries[Random.Shared.Next(Summaries.ToArray().Length)]
-            })
-            .ToArray();
-        Console.WriteLine("Get ended");
+                _logger.LogError("Argument is null or empty: Add weather forecast");
+                throw new ArgumentNullException("name", "Name value is null or empty");
+            }
+
+            _logger.LogInformation("Add started");
+            await _weatherService.Add(name);
+            _logger.LogInformation("Add ended");
+        }
+
+        [HttpPut]
+        [Route("UpdateVerbose")]
+        public async Task UpdateVerbose(UpdateVerboseDTO verbose)
+        {
+            if(verbose == null || string.IsNullOrEmpty(verbose.Name)) 
+            {
+                _logger.LogError("Argument is null or empty: Update varbose");
+                throw new ArgumentNullException("verbose", "Update mpodel is null or Name value is empty");
+            }
+
+            _logger.LogInformation("Update started");
+            await _weatherService.Update(verbose);
+            _logger.LogInformation("Update ended");
+        }
     }
 }
